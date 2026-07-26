@@ -51,7 +51,13 @@ def open_browser():
     webbrowser.open_new('http://127.0.0.1:8080/')
 
 if __name__ == '__main__':
-    PORT = 8080
-    print(f"--- SafeRoute Server Running at http://127.0.0.1:{PORT} ---")
-    Timer(1.2, open_browser).start()
-    app.run(host='127.0.0.1', port=PORT, debug=True)
+    # Render provides a dynamic PORT; fall back to 8080 for local testing
+    PORT = int(os.environ.get("PORT", 8080))
+    print(f"--- SafeRoute Server Running at http://0.0.0.0:{PORT} ---")
+    
+    # Only open the browser automatically when running locally, not on Render
+    if "RENDER" not in os.environ:
+        Timer(1.2, lambda: webbrowser.open_new(f'http://127.0.0.1:{PORT}/')).start()
+        
+    # Bind to 0.0.0.0 so Render can access the application
+    app.run(host='0.0.0.0', port=PORT, debug=False)
