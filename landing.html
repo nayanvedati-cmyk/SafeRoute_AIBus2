@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeRoute | AI-Powered Fleet Safety Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-dark: #07090e;
+            --card-bg: rgba(18, 22, 31, 0.7);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent-green: #00e676;
+            --accent-cyan: #00e5ff;
+            --accent-blue: #2979ff;
+            --text-main: #f0f4f8;
+            --text-subtle: #8a99ad;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        .bg-grid {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-image: 
+                linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none; z-index: -2;
+        }
+
+        .glow-orb {
+            position: fixed; width: 600px; height: 600px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 229, 255, 0.12) 0%, rgba(41, 121, 255, 0.05) 50%, transparent 70%);
+            top: -150px; left: 50%; transform: translateX(-50%);
+            pointer-events: none; z-index: -1;
+            animation: pulseGlow 8s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulseGlow {
+            0% { transform: translateX(-50%) scale(1); opacity: 0.8; }
+            100% { transform: translateX(-50%) scale(1.15); opacity: 1; }
+        }
+
+        nav {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 24px 64px; border-bottom: 1px solid var(--card-border);
+            backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100;
+            background: rgba(7, 9, 14, 0.75);
+        }
+
+        .logo { display: flex; align-items: center; gap: 10px; font-size: 1.25rem; font-weight: 700; }
+
+        .logo-icon {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            font-weight: 800; color: #000; font-size: 0.9rem;
+        }
+
+        .nav-links { display: flex; gap: 32px; list-style: none; }
+        .nav-links a { color: var(--text-subtle); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color 0.2s; }
+        .nav-links a:hover { color: var(--text-main); }
+
+        .btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 10px 22px; border-radius: 8px; font-size: 0.9rem;
+            font-weight: 600; text-decoration: none; cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            color: #000; border: none; box-shadow: 0 0 20px rgba(0, 229, 255, 0.25);
+        }
+
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(0, 229, 255, 0.45); }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05); color: var(--text-main);
+            border: 1px solid var(--card-border);
+        }
+
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.2); }
+
+        .hero {
+            max-width: 1200px; margin: 0 auto; padding: 100px 24px 60px;
+            text-align: center; display: flex; flex-direction: column; align-items: center;
+        }
+
+        .badge {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 6px 14px; border-radius: 20px; background: rgba(0, 229, 255, 0.08);
+            border: 1px solid rgba(0, 229, 255, 0.2); color: var(--accent-cyan);
+            font-size: 0.8rem; font-weight: 500; margin-bottom: 24px;
+        }
+
+        .badge-dot { width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+
+        .hero h1 { font-size: 3.8rem; font-weight: 800; line-height: 1.1; letter-spacing: -1.5px; margin-bottom: 24px; max-width: 900px; }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #ffffff 30%, var(--text-subtle) 70%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p { font-size: 1.2rem; color: var(--text-subtle); max-width: 680px; margin-bottom: 40px; }
+
+        .cta-group { display: flex; gap: 16px; }
+
+        .features { max-width: 1100px; margin: 80px auto; padding: 0 24px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+
+        .feature-card {
+            background: var(--card-bg); border: 1px solid var(--card-border);
+            padding: 32px; border-radius: 14px; transition: all 0.3s ease;
+        }
+
+        .feature-card:hover { border-color: rgba(255, 255, 255, 0.2); transform: translateY(-6px); }
+
+        .feature-icon {
+            width: 44px; height: 44px; border-radius: 10px;
+            background: rgba(0, 229, 255, 0.1); color: var(--accent-cyan);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.2rem; margin-bottom: 20px;
+        }
+
+        footer { border-top: 1px solid var(--card-border); padding: 40px 64px; text-align: center; color: var(--text-subtle); font-size: 0.85rem; margin-top: 80px; }
+
+        @media (max-width: 900px) { .hero h1 { font-size: 2.5rem; } .grid-3 { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <div class="bg-grid"></div>
+    <div class="glow-orb"></div>
+
+    <nav>
+        <div class="logo">
+            <div class="logo-icon">SR</div>
+            <span>SafeRoute AI</span>
+        </div>
+        <ul class="nav-links">
+            <li><a href="#features">Features</a></li>
+        </ul>
+        <a href="/dashboard" class="btn btn-primary">Try Dashboard →</a>
+    </nav>
+
+    <section class="hero">
+        <div class="badge">
+            <span class="badge-dot"></span> MediaPipe 3D Face Mesh Active
+        </div>
+        <h1>Real-time Fleet Oversight with <span class="gradient-text">Autonomous Safety Intelligence</span></h1>
+        <p>Monitor driver attentiveness with 468 3D landmark tracking, detect road anomalies, and instantly query fleet diagnostics.</p>
+        <div class="cta-group">
+            <a href="/dashboard" class="btn btn-primary" style="padding: 14px 32px; font-size: 1rem;">Launch SafeRoute Console →</a>
+            <a href="#features" class="btn btn-secondary" style="padding: 14px 28px; font-size: 1rem;">Explore System Features</a>
+        </div>
+    </section>
+
+    <section class="features" id="features">
+        <div class="grid-3">
+            <div class="feature-card">
+                <div class="feature-icon">🕸️</div>
+                <h3>MediaPipe 3D Face Mesh</h3>
+                <p>Tracks 468 3D facial landmarks in real-time to compute Eye Aspect Ratio (EAR) and warn against fatigue or drowsiness.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚡</div>
+                <h3>Ultra-Fast Copilot</h3>
+                <p>Integrated with Groq Llama 3 for real-time safety queries, incident analysis, and protocol management.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Active Zone Protection</h3>
+                <p>Exterior sensor confirmation ensuring student boarding and deboarding safety zones remain clear before departure.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        © 2026 SafeRoute AI | Next-Generation Fleet Intelligence & Student Safety Systems
+    </footer>
+
+</body>
+</html>
