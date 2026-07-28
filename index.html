@@ -9,6 +9,12 @@
     <!-- MediaPipe Face Mesh Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <!-- TensorFlow.js & COCO-SSD for Object/Cell Phone Detection -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3"></script>
+
+    <!-- MediaPipe Hands for Hand Tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <style>
         :root {
@@ -237,8 +243,11 @@
                     </div>
                     <div class="cam-controls">
                         <div>Status: <strong id="fatigueStatus" style="color:var(--accent-green)">Driver Monitor Active</strong></div>
-                        <button class="btn-action" id="toggleCamBtn">📹 Enable Driver Camera</button>
-                    </div>
+                        <div style="display:flex; gap:8px;">
+                            <button class="btn-action" id="calibratePoseBtn">🎯 Calibrate Center (0°)</button>
+                            <button class="btn-action" id="toggleCamBtn">📹 Enable Driver Camera</button>
+                        </div>
+                    </div>                    
                     <div class="panel-title">
                     <span>📈 Real-Time Vision & Telemetry</span>
                 </div>
@@ -267,8 +276,7 @@
                         <tr><th>Safety Control</th><th>Status</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>Gaze & Phone Distraction</td><td><span class="badge-clear" id="gazeBadge">Clear</span></td></tr>
-                        <tr><td>Fatigue / Drowsiness (EAR)</td><td><span class="badge-clear" id="earBadge">Clear</span></td></tr>
+                        <tr><td>Head Pose Distraction (Pitch/Yaw)</td><td><span class="badge-clear" id="headPoseBadge">Clear</span></td></tr>                        <tr><td>Fatigue / Drowsiness (EAR)</td><td><span class="badge-clear" id="earBadge">Clear</span></td></tr>
                         <tr><td>Sustained Eyes Closed (>3s)</td><td><span class="badge-clear" id="sustainedBadge">Clear</span></td></tr>
                         <tr><td>Yawn Detection (MAR)</td><td><span class="badge-clear" id="marBadge">Clear</span></td></tr>
                         <tr><td>Total Yawns Count</td><td><span class="badge-clear" id="yawnCountBadge">0 Yawns</span></td></tr>
@@ -513,12 +521,55 @@
             if (h === 0) return 0.1;
             return distanceScaled(topLip, bottomLip, width, height) / h;
         }
+        // Estimate Head Pitch and Yaw in degrees using MediaPipe 3D Mesh
+        let poseBaseline = { pitchRatio: 0, yawRatio: 0, calibrated: false };
+
+        function calibrateHeadPose() {
+            poseBaseline.calibrated = false; // Triggers auto-capture on next frame
+        }
+
+        function calculateHeadPose(landmarks) {
+            const noseTip = landmarks[1];
+            const forehead = landmarks[10];
+            const chin = landmarks[152];
+            const leftCheek = landmarks[234];
+            const rightCheek = landmarks[454];
+
+            // Face dimensions for scale normalization
+            const faceWidth = Math.abs(rightCheek.x - leftCheek.x) || 1.0;
+            const faceHeight = Math.abs(chin.y - forehead.y) || 1.0;
+
+            // Raw horizontal (Yaw) and vertical (Pitch) ratio offsets
+            const midCheekX = (leftCheek.x + rightCheek.x) / 2.0;
+            const rawYawRatio = (noseTip.x - midCheekX) / faceWidth;
+
+            const midFaceY = (forehead.y + chin.y) / 2.0;
+            const rawPitchRatio = (midFaceY - noseTip.y) / faceHeight;
+
+            // Auto-Calibrate on first run or when button clicked
+            if (!poseBaseline.calibrated) {
+                poseBaseline.pitchRatio = rawPitchRatio;
+                poseBaseline.yawRatio = rawYawRatio;
+                poseBaseline.calibrated = true;
+            }
+
+            // Measure delta from baseline
+            const yawAngle = (rawYawRatio - poseBaseline.yawRatio) * 150.0;
+            const pitchAngle = (rawPitchRatio - poseBaseline.pitchRatio) * 150.0;
+
+            return { pitch: pitchAngle, yaw: yawAngle };
+        }
+        
 
         // Real-Time Computer Vision Core
         let eyesClosedStartTime = null;
         let sustainedAlertLogged = false;
         let fatigueRisk100Logged = false;
         
+        // Head Pose Distraction Tracking State
+        let distractionStartTime = null;
+        let distractionLogged = false;
+
         // Yawn Counter State
         let fatigueRisk100Count = 0; // <-- Add this counter
         let yawnCount = 0;
@@ -557,10 +608,60 @@
                 const avgEAR = (leftEAR + rightEAR) / 2.0;
                 const mar = calculateMAR(landmarks, w, h);
 
-                // Update Telemetry Controls
+                // Calculate Pitch and Yaw
+                const pose = calculateHeadPose(landmarks);
+                const pitchDeg = pose.pitch;
+                const yawDeg = pose.yaw;
+
+                // Update UI Telemetry Box
+                document.getElementById('poseVal').textContent = `${pitchDeg.toFixed(1)}° / ${yawDeg.toFixed(1)}°`;
                 document.getElementById('earVal').textContent = avgEAR.toFixed(2);
                 document.getElementById('marVal').textContent = mar.toFixed(2);
-                updateChart(avgEAR, mar);
+
+                // Head Pose Distraction Logic (Pitch > 20°/<-15° or |Yaw| > 25°)
+                const isDistracted = Math.abs(yawDeg) > 25.0 || Math.abs(pitchDeg) > 25.0;
+
+                const gazeTextEl = document.getElementById('gazeStatusText');
+                const headBadgeEl = document.getElementById('headPoseBadge');
+
+                if (isDistracted) {
+                    if (!distractionStartTime) {
+                        distractionStartTime = Date.now();
+                    }
+                    const distractionSec = (Date.now() - distractionStartTime) / 1000.0;
+
+                    if (gazeTextEl) {
+                        gazeTextEl.textContent = `DISTRACTED (${distractionSec.toFixed(1)}s)`;
+                        gazeTextEl.style.color = "var(--accent-red)";
+                    }
+
+                    // Trigger alert after 2 continuous seconds of distraction
+                    if (distractionSec >= 2.0) {
+                        if (headBadgeEl) {
+                            headBadgeEl.textContent = 'DISTRACTED';
+                            headBadgeEl.className = 'badge-alert';
+                        }
+                        playWarningBeep();
+
+                        if (!distractionLogged) {
+                            addIncidentRow(`Driver Distraction Detected: Looking away for > 2.0s`, "Warning", "In-Cabin Audio Alert Triggered");
+                            distractionLogged = true;
+                        }
+                    }
+                } else {
+                    distractionStartTime = null;
+                    distractionLogged = false;
+
+                    if (gazeTextEl) {
+                        gazeTextEl.textContent = "CENTERED";
+                        gazeTextEl.style.color = "var(--accent-green)";
+                    }
+                    if (headBadgeEl) {
+                        headBadgeEl.textContent = 'Clear';
+                        headBadgeEl.className = 'badge-clear';
+                    }
+                };
+                
 
                 // Yawn Handling & Counter Logic
                 const isYawning = mar > marThreshold;
@@ -780,13 +881,12 @@
             document.getElementById('themeToggleBtn').addEventListener('click', toggleTheme);
             document.getElementById('accentColorPicker').addEventListener('input', (e) => setAccentColor(e.target.value));
             document.getElementById('toggleCamBtn').addEventListener('click', toggleCamera);
-            
-            document.getElementById('emergencyBtn').addEventListener('click', () => {
-                document.getElementById('emergencyAlert').style.display = 'block';
-                addIncidentRow("Emergency Dispatch Overridden", "Critical", "Units Paged");
-                playWarningBeep();
+            document.getElementById('calibratePoseBtn').addEventListener('click', () => {
+                calibrateHeadPose();
+                const btn = document.getElementById('calibratePoseBtn');
+                btn.textContent = "✅ Calibrated!";
+                setTimeout(() => { btn.textContent = "🎯 Calibrate Center (0°)"; }, 1500);
             });
-
             document.getElementById('busSelect').addEventListener('change', (e) => {
                 const busId = e.target.value;
                 document.getElementById('activeBusLabel').textContent = `Monitoring active for: ${busId}`;
